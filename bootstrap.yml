@@ -1,0 +1,39 @@
+---
+ - hosts: all
+   gather_facts: no
+   become: yes
+   vars:
+     _bootstrap_initial_user: "{{ bootstrap_initial_user | default('root') }}"
+     _bootstrap_user: "{{ bootstrap_user | lower | default('deploy') }}"
+     _bootstrap_password: "{{ bootstrap_encrypted_password| default('*') }}"
+     _bootstrap_key: "{{ bootstrap_key }}"
+   remote_user: "{{ _bootstrap_initial_user }}"
+ 
+   tasks:
+ 
+   - name: Sanity check: Check password
+     fail: msg="Error. This play requires 'bootstrap_encrypted_password'"
+     when: bootstrap_encrypted_password is not defined
+     
+   - name: Sanity check: Check public key
+     fail: msg="Error. This play requires 'bootstrap_key'"
+     when: bootstrap_key is not defined
+     
+   - name: Add new user
+     ansible.builtin.user:
+          name: "{{ _bootstrap_user }}"
+          password: "{{ _bootstrap_password }}"
+          comment: "Deploy user"
+          update_password: on_create
+ 
+   - name: Add user to the sudoers
+     copy:
+          dest: "/etc/sudoers.d/{{ _bootstrap_user }}"
+          content: "{{ _bootstrap_user }}  ALL=(ALL)  NOPASSWD: ALL"
+ 
+   - name: Deploy SSH Key
+     ansible.posix.authorized_key: 
+       user: "{{ _bootstrap_user }}"
+       key: "{{ _bootstrap_key }}"
+       state: present
+                     
