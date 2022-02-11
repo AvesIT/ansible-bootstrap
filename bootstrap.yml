@@ -24,6 +24,10 @@
     fail: msg="Error. This play requires 'bootstrap_initial_password'"
     when: bootstrap_initial_password is not defined
 
+  - name: Sanity check- Check ip
+    fail: msg="Error. This play requires 'bootstrap_ip'"
+    when: bootstrap_ip is not defined
+
   - name: Add new host to inventory
     add_host:
       hostname: "{{ _bootstrap_ip }}"
