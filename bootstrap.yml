@@ -1,32 +1,33 @@
 ---
-- hosts: all
+- hosts: localhost
+  name: Santity check
   gather_facts: no
   become: yes
   vars:
     _bootstrap_initial_user: "{{ bootstrap_initial_user | default('root') }}"
     _bootstrap_initial_password: "{{ bootstrap_initial_password }}"
     _bootstrap_ip: "{{ bootstrap_ip }}"
-    _bootstrap_user: "{{ bootstrap_user | lower | default('deploy') }}"
-    _bootstrap_password: "{{ bootstrap_encrypted_password| default('*') }}"
+    _bootstrap_user: "{{ bootstrap_user | lower | default('deploy', true) }}"
+    _bootstrap_password: "{{ bootstrap_encrypted_password| default('*', true) }}"
     _bootstrap_key: "{{ bootstrap_key }}"
 
   tasks:
 
   - name: Sanity check- Check password
     fail: msg="Error. This play requires 'bootstrap_encrypted_password'"
-    when: bootstrap_encrypted_password is not defined
+    when: _bootstrap_password is not defined
 
   - name: Sanity check- Check public key
     fail: msg="Error. This play requires 'bootstrap_key'"
-    when: bootstrap_key is not defined
+    when: _bootstrap_key is not defined
 
   - name: Sanity check- Check initial password
     fail: msg="Error. This play requires 'bootstrap_initial_password'"
-    when: bootstrap_initial_password is not defined
+    when: _bootstrap_initial_password is not defined
 
   - name: Sanity check- Check ip
     fail: msg="Error. This play requires 'bootstrap_ip'"
-    when: bootstrap_ip is not defined
+    when: _bootstrap_ip is not defined
 
   - name: Add new host to inventory
     add_host:
@@ -34,14 +35,15 @@
       groupname: "new_hosts"
 
 - hosts: new_hosts
+  name: Deploy bootstrap user on hosts
   gather_facts: no
   become: yes
   vars:
     _bootstrap_initial_user: "{{ bootstrap_initial_user | default('root') }}"
     _bootstrap_initial_password: "{{ bootstrap_initial_password }}"
     _bootstrap_ip: "{{ bootstrap_ip }}"
-    _bootstrap_user: "{{ bootstrap_user | lower | default('deploy') }}"
-    _bootstrap_password: "{{ bootstrap_encrypted_password| default('*') }}"
+    _bootstrap_user: "{{ bootstrap_user | lower | default('deploy', true) }}"
+    _bootstrap_password: "{{ bootstrap_encrypted_password| default('*', true) }}"
     _bootstrap_key: "{{ bootstrap_key }}"
     ansible_host: "{{ _bootstrap_ip }}"
     ansible_user: "{{ _bootstrap_initial_user }}"
@@ -57,9 +59,9 @@
        update_password: on_create
 
    - name: Add user to the sudoers
-     copy:
+     ansible.builtin.template:
+       src: "templates/sudoers"
        dest: "/etc/sudoers.d/{{ _bootstrap_user }}"
-       content: "{{ _bootstrap_user }}  ALL=(ALL)  NOPASSWD: ALL"
 
    - name: Deploy SSH Key
      ansible.posix.authorized_key:
@@ -68,5 +70,8 @@
        state: present
 
 - hosts: new_hosts
+  name: Check connectivity
   gather_facts: yes
+  vars:
+    ansible_user: "{{ bootstrap_user | lower | default('deploy', true) }}"
 
